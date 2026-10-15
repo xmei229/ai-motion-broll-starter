@@ -2,7 +2,7 @@
 
 ## video-shotcraft
 `src/styles/creative-mode/transitions.tsx` 與 `src/styles/creative-mode/props/actions.ts` 的動作寫法，參考了 video-shotcraft 的鏡頭卡（Apache License 2.0）。
-- 來源：https://github.com/Vincentwei1021/video-shotcraft （參考的版本：commit `5ddbf521038b0a7accfb6dc1e0a9eb29c67277ab`，2026-09-28）
+- 來源：https://github.com/Vincentwei1021/video-shotcraft （線上動作庫：https://vincentwei1021.github.io/video-shotcraft/library.html） （參考的版本：commit `5ddbf521038b0a7accfb6dc1e0a9eb29c67277ab`，2026-09-28）
 - 授權全文：`references/video-shotcraft/LICENSE`
 - 改動：程式從零改寫成本專案的 TypeScript 與 tokens，沒有直接複製原檔；各檔檔頭註明參考的卡名與改了什麼。
 - `src/lib/easing.ts` 的緩動表改寫自 video-shotcraft 的 `demos/_fixtures/Motion.tsx`，檔頭有說明。
