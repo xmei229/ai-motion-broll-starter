@@ -1,0 +1,49 @@
+{
+  "style": "creative-mode",
+  "aspect": "16:9",
+  "durationSec": 27,
+  "sfx": false,
+  "beats": [
+    {
+      "id": "01", "start": 0, "end": 6, "transitionOut": "push",
+      "card": { "kind": "compare", "title": "整片樣張 01：對照",
+        "left": { "title": "靜止字幕", "at": 0.8 }, "right": { "title": "對得上的動畫", "at": 1.6 },
+        "rows": [
+          { "label": "眼睛", "left": "沒事做", "right": "有東西追", "at": 2.4 },
+          { "label": "意思", "left": "要自己想", "right": "畫面替你講", "at": 3.6 }
+        ] }
+    },
+    {
+      "id": "02", "start": 6, "end": 12, "transitionOut": "carry", "transitionAnchor": [0.42, 0.55],
+      "card": { "kind": "stage", "title": "整片樣張 02：道具",
+        "items": [
+          { "prop": "mic", "x": 0.3, "y": 0.55, "size": 380, "at": 0.4, "enter": "spinIn",
+            "emphasis": [{ "at": 2.0, "action": "wobble" }] }
+        ],
+        "stickers": [{ "text": "A-roll", "at": 1.6, "x": 576, "y": 880, "tone": "yellow", "display": true, "size": 72 }] }
+    },
+    {
+      "id": "03", "start": 12, "end": 18, "transitionIn": "carry", "transitionAnchorIn": [0.1, 0.55], "transitionOut": "blocks",
+      "card": { "kind": "chain", "title": "整片樣張 03：因果鏈",
+        "steps": [
+          { "title": "聲音", "at": 1.2 }, { "title": "畫面", "at": 2.4 }, { "title": "時間對準", "at": 3.6 }
+        ] }
+    },
+    {
+      "id": "04", "start": 18, "end": 23, "transitionOut": "iris", "transitionAnchor": [0.5, 0.5],
+      "card": { "kind": "bars", "title": "整片樣張 04：量表",
+        "rows": [
+          { "label": "甲", "value": 0.8, "rank": "高", "at": 0.6, "tone": "accent" },
+          { "label": "乙", "value": 0.5, "rank": "中", "at": 1.4 },
+          { "label": "丙", "value": 0.25, "rank": "低", "at": 2.2, "tone": "warn" }
+        ] }
+    },
+    {
+      "id": "05", "start": 23, "end": 27,
+      "card": { "kind": "stage", "title": "整片樣張 05：時鐘",
+        "items": [
+          { "prop": "clock", "x": 0.5, "y": 0.55, "size": 420, "at": 0.6, "enter": "dropIn", "tone": "accent" }
+        ] }
+    }
+  ]
+}

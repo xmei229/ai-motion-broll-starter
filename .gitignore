@@ -1,0 +1,16 @@
+node_modules
+dist
+.DS_Store
+.env
+
+# 渲染結果
+out
+
+# 旁白與音效檔（自己放，不進版本控制）
+tutorial/*/assets/*.mp3
+tutorial/*/assets/*.wav
+tutorial/*/assets/sfx/*/
+
+# remotion bundle 的預設輸出
+build
+_inbox/
