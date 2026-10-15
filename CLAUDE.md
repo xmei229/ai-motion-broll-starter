@@ -39,11 +39,20 @@ npx remotion render src/index.ts Tutorial tutorial/ep01/out/ep01.mp4 --props=tut
 - 轉場是每段先退場、下一段再進場，不重疊。轉場吃掉的時間，卡片裡的 `at` 要避開。
 - 轉場音效預設不掛。要掛：`node tutorial/download-sfx.mjs ep01`（自己下載，先讀它檔頭的授權說明），再把 props 的 `sfx` 設為 `true`。
 
+## 新增動作（轉場、入場、強調、退場）
+動作參考庫在 `references/video-shotcraft/`（唯讀）。要做某個動作前，先到 `shots/<類別>/` 找對應的卡，讀參數表與已知坑。一次只搬一張卡：
+1. 讀卡全文。卡裡「參考實現」指的 `demos/` 檔案不在這個 repo，只有原庫有；沒有它就依卡片的「動效核心」與參數表自己寫。
+2. 改寫進風格資料夾（`src/styles/creative-mode/`），顏色與字體換成該風格的 tokens；不要 import 參考庫裡的任何東西。
+3. 格數依幀率換算（參考庫以 30fps、1920×1080 為準）。
+4. 檔頭註明來源卡名、Apache License 2.0、改了什麼；並把這張卡補進 `NOTICE.md`。
+5. 把這個動作寫進 `MOTION.md` 的表格（名稱用反引號包住），並跑 `node tutorial/_catalog/build-catalog.mjs` 重產目錄。名稱也要加進 `src/lib/types.ts` 的聯集。
+6. 渲染後請使用者看片回驗；卡片的參數只是起點。
+
 ## 完成前
 - 改動前後都跑 `npm run lint`。
 - 渲染後用 `npx remotion still` 抽幾格驗證，同一個 frame 兩次渲染要相同。
 - 量產前跑 `node tutorial/review.mjs <epNN> check`，錯誤清到 0。
 
 ## 授權
-- 動作的寫法參考了 video-shotcraft（Apache License 2.0），見 `NOTICE.md` 與 `licenses/`。
+- 動作的寫法參考了 video-shotcraft（Apache License 2.0），見 `NOTICE.md` 與 `references/video-shotcraft/`。
 - 色票與字型取自 HyperFrames 的 Creative Mode 範本頁，見 `src/styles/creative-mode/tokens.ts`。
