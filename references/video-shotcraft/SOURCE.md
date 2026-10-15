@@ -7,7 +7,7 @@
 - 這個資料夾**唯讀**，不是程式的一部分，不被 `src/` 引用，也不受 lint 管。更新時整個資料夾換掉，並改上面的 commit 與日期。
 
 ## 看預覽
-原作者的線上動作庫（有分類篩選與搜尋，每張卡有動作範例）：https://vincentwei1021.github.io/video-shotcraft/library.html
+原作者的線上動作庫（由原庫的 GitHub 頁面連出；有分類篩選與搜尋，每張卡有預覽畫面與 Recipe 連結）：https://vincentwei1021.github.io/video-shotcraft/library.html
 注意：那一頁標示 124 張卡，而這份副本有 157 張（副本取自較新的 commit），數量與內容不一定一一對得上，以副本為準。
 
 ## 用法
