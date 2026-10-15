@@ -23,7 +23,7 @@ npm run dev        # 開 Remotion Studio
 - `tutorial/ep00/asset-list.md`：道具表
 - `tutorial/ep00/storyboard.md`：分鏡表
 - `tutorial/ep00/props-film-sample.json`：整片 props 範例
-- `references/video-shotcraft/`：157 張動作參考卡（唯讀、Apache 2.0），新增動作時給 agent 讀。原作者的線上動作庫可以先逛：https://vincentwei1021.github.io/video-shotcraft/library.html
+- `references/video-shotcraft/`：157 張動作參考卡（唯讀、Apache 2.0），新增動作時給 agent 讀。原作者的線上動作庫可以先逛：https://vincentwei1021.github.io/video-shotcraft/library.html （右上角可切換中文）
 - 動作與道具的預覽：`node tutorial/_catalog/build-catalog.mjs`，再開 `tutorial/_catalog/out/index.html`
 
 ## 授權

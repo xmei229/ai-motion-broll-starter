@@ -4,6 +4,16 @@
 `src/styles/creative-mode/transitions.tsx` 與 `src/styles/creative-mode/props/actions.ts` 的動作寫法，參考了 video-shotcraft 的鏡頭卡（Apache License 2.0）。
 - 來源：https://github.com/Vincentwei1021/video-shotcraft （線上動作庫：https://vincentwei1021.github.io/video-shotcraft/library.html） （參考的版本：commit `5ddbf521038b0a7accfb6dc1e0a9eb29c67277ab`，2026-09-28）
 - 授權全文：`references/video-shotcraft/LICENSE`
+- 參考了哪幾張卡（卡名是 `references/video-shotcraft/shots/` 裡的檔名；線上動作庫有中英文介面，中文名在括號）：
+
+  | 本專案的轉場 | 參考的卡 | 主要改動 |
+  |---|---|---|
+  | `push` 橫推 | `bottom-push-stack-wipe`（底邊上推換章） | 改成往左；去掉接縫陰影；出場與進場分開用兩條曲線 |
+  | `blocks` 色塊階梯 | `color-block-step-wipe`（色塊階躍吞屏） | 保留零緩動；改成一整條色塊；徽章過衝與攜帶卡沒搬 |
+  | `doors` 對開門 | `page-turn-transitions`（對開門那式） | 改成兩扇門蓋上，不是把舊頁裂成兩半；立方體翻轉沒搬 |
+  | `iris` 光圈 | `circle-match-iris`（圓心匹配光圈切） | 只取光圈機制，沒有圓對圓的匹配 |
+  | `carry` 延伸 | `line-carry-transition`（線條接力轉場） | 改成一條水平線；直角拐彎與圍框沒做；線頭停在畫面 78% 取自原卡 |
+
 - 改動：程式從零改寫成本專案的 TypeScript 與 tokens，沒有直接複製原檔；各檔檔頭註明參考的卡名與改了什麼。
 - `src/lib/easing.ts` 的緩動表改寫自 video-shotcraft 的 `demos/_fixtures/Motion.tsx`，檔頭有說明。
 
