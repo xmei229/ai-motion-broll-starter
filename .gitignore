@@ -14,3 +14,9 @@ tutorial/*/assets/sfx/*/
 # remotion bundle 的預設輸出
 build
 _inbox/
+
+# 各集的內容（逐字稿、字幕、道具表、分鏡表、成品）是各人自己的，不進版本控制；ep00 是範本，保留
+tutorial/ep[0-9][0-9]/
+!tutorial/ep00/
+*.srt
+*逐字稿*

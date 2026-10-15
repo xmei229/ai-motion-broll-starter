@@ -9,10 +9,13 @@ cd ai-motion-broll-starter
 npm install
 npm run dev        # 開 Remotion Studio
 ```
+第一次渲染或開 Studio 時，Remotion 會自動下載一個約 280 MB 的無頭瀏覽器，放在 `node_modules/.remotion`；渲染時也要連網載入 Google Fonts。
+
 然後把這個資料夾交給你的 agent（Claude Code、Codex、Gemini CLI 等），第一句話說：**請先讀 CLAUDE.md**。
 
 ## 你需要有
-- Node.js 18 以上
+- Node.js（建議 22；我用 v22 測過，更舊的版本沒驗證）
+- Git
 - 一個能讀寫檔案、跑指令的 agent
 - 你自己的逐字稿、旁白錄音、人工校過的 srt 字幕（放進 `tutorial/<epNN>/assets/`）
 
