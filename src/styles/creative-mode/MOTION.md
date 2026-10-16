@@ -104,6 +104,15 @@
 
 範例：`tutorial/ep00/props-film-sample.json`（五段，用到 push、carry、blocks、iris）。
 
+### 1.7 錄屏佔位（`rec` 卡）
+
+教學片裡有些段落的畫面是使用者另外錄的螢幕畫面。**錄影不進 Remotion，留到後製（DaVinci Resolve 等）放入**：放大重點區域、錄影比旁白長、用 proxy 剪大檔，都在後製軟體做，也避免錄影被 Remotion 多壓縮一次。所以這些段落在 Remotion 輸出裡是 `rec` 卡：斜紋框加大字的編號（例如 `REC-04`）、要錄什麼，和這一段的起訖時間。
+
+- 卡片寫法：`{ "kind": "rec", "title": "…", "id": "rec-04", "note": "要錄什麼", "timecode": "00:12.0–00:30.0" }`
+- 靜態畫面，沒有進場動作；進退場由轉場負責，轉場照常設定。
+- 後製對位：`node tutorial/review.mjs <epNN> markers` 會產生 `out/rec-markers.edl`（DaVinci Resolve 時間軸標記，每個錄屏段落一個，名稱是編號加說明，長度是該段格數）與 `out/rec-list.csv`。**EDL 匯入在 Resolve 的實測我沒做過**，匯不進去就用 CSV 的時間手動對。
+- 錄影比旁白長時，錄影會蓋過下一段開頭：分鏡表備註寫「錄影延長 N 秒」，那一段開頭 N 秒不放關鍵內容。
+
 ## 第 2 層：修飾
 
 | 名稱 | 狀態 | 說明 |

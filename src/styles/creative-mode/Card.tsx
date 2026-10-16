@@ -8,6 +8,7 @@ import { Compare } from "./Compare";
 import { Icons } from "./Icons";
 import { Meme } from "./Meme";
 import { Picture } from "./Picture";
+import { Rec } from "./Rec";
 import { Stage } from "./Stage";
 import { Tags } from "./Tags";
 
@@ -45,5 +46,7 @@ const Kind: React.FC<{ card: TutorialCard; aspect: Aspect }> = ({
       return <Meme card={card} aspect={aspect} />;
     case "stage":
       return <Stage card={card} aspect={aspect} />;
+    case "rec":
+      return <Rec card={card} aspect={aspect} />;
   }
 };

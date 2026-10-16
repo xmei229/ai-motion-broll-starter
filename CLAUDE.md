@@ -31,6 +31,14 @@
 - 道具、動作、轉場的名稱與數字，以 `src/styles/creative-mode/MOTION.md` 為準；動作與道具的預覽在 `tutorial/_catalog/out/index.html`（`node tutorial/_catalog/build-catalog.mjs` 產生）。
 - 不用道具表與動作庫裡沒有的名字。缺的動作或道具，先在審稿頁標出來問使用者，再補。
 
+## 錄屏畫面（後製放入）
+稿裡標【錄電腦畫面 N】的段落，畫面是使用者另外錄的螢幕錄影，**不進 Remotion**，在後製放入。
+- 標記規則：`【錄電腦畫面 N：要錄什麼】` 開始，`【/錄電腦畫面 N】` 結束；沒有結束標記時範圍到該段結束（下一個空行）。標記放在句與句之間。沒有標記的地方一律是代碼繪圖。
+- 道具表：每個錄屏一列，ID 以 `rec-` 開頭，來源寫「錄製」，說明欄寫要錄什麼。這份就是使用者的待錄清單。
+- 分鏡表：該段卡片寫 `rec`，道具欄寫那個 `rec-` ID。`rec` 卡是佔位卡，Remotion 照常輸出整片。
+- `node tutorial/review.mjs <epNN> markers` 產生 DaVinci Resolve 的時間軸標記（EDL）與清單（CSV）。
+- 錄影檔放 `tutorial/<epNN>/assets/rec/<ID>.mp4`，給後製用，Remotion 不讀它。
+
 ## 整片
 `Tutorial` 的 props 給 `beats`，就把每一段依旁白時間接成一支，含轉場與旁白。格式見 `tutorial/ep00/props-film-sample.json`：
 ```bash

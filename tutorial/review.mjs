@@ -4,6 +4,8 @@
 //   node tutorial/review.mjs <epNN> gate1                 關卡 1：道具表審稿頁
 //   node tutorial/review.mjs <epNN> gate2                 關卡 2：分鏡表審稿頁（含自動檢查結果）
 //   node tutorial/review.mjs <epNN> gate3 [--props 檔名]  關卡 3：分鏡圖總表（每段渲一張，排成一頁）
+//   node tutorial/review.mjs <epNN> markers [--fps 30] [--start-tc 01:00:00:00]
+//                                                         錄屏段落清單：DaVinci Resolve 時間軸標記（EDL）與 CSV
 // 輸入：tutorial/<epNN>/asset-list.md、storyboard.md、props-film.json（關卡 3）
 // 輸出：tutorial/<epNN>/out/review/*.html（資料與圖片都在同一個資料夾，搬走也能開）
 import { execSync } from "node:child_process";
@@ -12,7 +14,7 @@ import path from "node:path";
 
 const [ep, cmd, ...rest] = process.argv.slice(2);
 if (!ep || !cmd) {
-  console.error("用法：node tutorial/review.mjs <epNN> <check|gate1|gate2|gate3>");
+  console.error("用法：node tutorial/review.mjs <epNN> <check|gate1|gate2|gate3|markers>");
   process.exit(1);
 }
 const ROOT = process.cwd();
@@ -43,7 +45,8 @@ const REGISTERED = [
   ...read(path.join(ROOT, "src/styles/creative-mode/props/index.ts")).matchAll(/^\s+(\w+):\s*\w+,/gm),
 ].map((m) => m[1]);
 const MEANINGS = ["比較", "步驟", "分類", "程度", "概念"];
-const SOURCES = ["庫內已有", "需新做", "外部素材", "無法具象化"];
+const SOURCES = ["庫內已有", "需新做", "外部素材", "錄製", "無法具象化"];
+const isRec = (a) => a["來源"] === "錄製";
 
 // ---------- Markdown 表格 ----------
 const parseTable = (file, firstHeader) => {
@@ -73,6 +76,13 @@ const BEAT_HEAD = ["Beat", "起", "訖", "旁白摘錄", "意思類型", "卡片
 const loadAssets = () => parseTable(path.join(EP, "asset-list.md"), "ID");
 const loadBeats = () => parseTable(path.join(EP, "storyboard.md"), "Beat");
 
+// 錄屏檔放在 assets/rec/，檔名是 ID，副檔名限常見影片格式。
+const recFile = (id) => {
+  const dir = path.join(EP, "assets", "rec");
+  if (!fs.existsSync(dir)) return null;
+  return fs.readdirSync(dir).find((f) => path.parse(f).name === id && /\.(mp4|mov|mkv|webm)$/i.test(f)) ?? null;
+};
+
 // ---------- 自動檢查 ----------
 const checkAssets = ({ header, rows }) => {
   const r = { errors: [], warns: [], infos: [] };
@@ -89,8 +99,14 @@ const checkAssets = ({ header, rows }) => {
       if (name && /^[A-Za-z]+$/.test(name) && !known.includes(name))
         r.warns.push(`道具 ${a.ID} 的動作「${name}」不在動作庫裡（要先做這個動作，或改用現有的）`);
     }
+    if (isRec(a) && !/^rec-[a-z0-9-]+$/.test(a.ID)) r.errors.push(`錄製項目的 ID「${a.ID}」要以 rec- 開頭，例如 rec-04`);
+    if (!isRec(a) && a.ID.startsWith("rec-")) r.errors.push(`ID「${a.ID}」以 rec- 開頭，來源要寫「錄製」`);
     if (a["來源"] === "庫內已有" && !REGISTERED.includes(a.ID)) r.errors.push(`道具 ${a.ID} 標「庫內已有」，但沒有在 props/index.ts 登記`);
     if (a["來源"] === "需新做" && !REGISTERED.includes(a.ID)) r.infos.push(`道具 ${a.ID} 還沒做（需新做）`);
+    if (isRec(a)) {
+      const have = recFile(a.ID);
+      r.infos.push(have ? `錄影 ${a.ID} 已在 assets/rec/（${have}）` : `錄影 ${a.ID} 還沒錄（後製放入，不影響 Remotion 輸出）`);
+    }
   }
   return r;
 };
@@ -120,6 +136,9 @@ const checkBeats = ({ header, rows }, assets) => {
       used.add(id);
       if (!ids.has(id)) r.errors.push(`${tag} 用了道具表沒有的 ID「${id}」`);
     }
+    const recIds = tokens(b["道具"]).filter((id) => assets.rows.find((a) => a.ID === id && isRec(a)));
+    if (b["卡片"] === "rec" && recIds.length !== 1) r.errors.push(`${tag} 的卡片是 rec，道具欄要剛好寫一個「錄製」來源的 ID（現在是 ${recIds.length} 個）`);
+    if (b["卡片"] !== "rec" && recIds.length) r.errors.push(`${tag} 用了錄製項目 ${recIds.join("、")}，卡片要寫 rec`);
     for (const [col, list] of [["進場", VOCAB.enter], ["強調", VOCAB.emphasis], ["退場", VOCAB.exit]])
       for (const t of tokens(b[col])) if (!list.includes(t)) r.errors.push(`${tag} 的${col}「${t}」不在動作庫裡（${list.join("、")}）`);
     const tr = dash(b["轉場"]);
@@ -159,6 +178,7 @@ const checkFilm = (film, beats, propsFile) => {
     if (Math.abs(b.end - e) > 0.05) r.errors.push(`${tag} 的 end ${b.end} 與分鏡表 ${row["訖"]} 對不上`);
     if (b.card.kind !== row["卡片"] && !row["卡片"].startsWith("新增:")) r.errors.push(`${tag} 的卡片是 ${b.card.kind}，分鏡表寫 ${row["卡片"]}`);
     if ((b.transitionOut ?? "none") !== (dash(row["轉場"]) ?? "none")) r.errors.push(`${tag} 的 transitionOut 是 ${b.transitionOut ?? "none"}，分鏡表寫 ${row["轉場"]}`);
+    if (b.card.kind === "rec" && !tokens(row["道具"]).includes(b.card.id)) r.errors.push(`${tag} 的 rec 卡 id 是 ${b.card.id}，分鏡表的道具欄是 ${row["道具"]}`);
     if (b.card.kind === "stage") {
       const want = new Set(tokens(row["道具"]));
       for (const it of b.card.items) if (!want.has(it.prop)) r.errors.push(`${tag} 擺了道具 ${it.prop}，分鏡表的道具欄沒有`);
@@ -268,6 +288,7 @@ if (cmd === "gate1") {
     .map((a) => {
       const reg = REGISTERED.includes(a.ID);
       const clip = reg ? copyClip(`prop-${a.ID}.mp4`) : null;
+      if (isRec(a)) return "";
       return `<article>${clip ? `<video src="${clip}" muted loop playsinline controls preload="metadata"></video>` : `<p class="muted">${reg ? "（目錄裡還沒有預覽）" : "還沒做，沒有預覽"}</p>`}
         <h3><code>${esc(a.ID)}</code> ${esc(a["名稱"])}</h3>
         <p><span class="tag">${esc(a["來源"])}</span><span class="tag">${esc(a["次數"])} 次</span><span class="tag">${esc(a["出現處"])}</span></p>
@@ -276,13 +297,21 @@ if (cmd === "gate1") {
         ${a["備註"] ? `<p class="muted">${esc(a["備註"])}</p>` : ""}</article>`;
     })
     .join("");
+  const recRows = assets.rows.filter(isRec);
+  const recTable = recRows.length
+    ? `<h2>待錄清單（${recRows.length} 支，之後在 DaVinci Resolve 放入）</h2>
+      <p class="hint">這些是你要另外錄的螢幕畫面。Remotion 的輸出裡這幾段是標明「此處放錄影」的佔位卡。錄好請存成 <code>assets/rec/&lt;ID&gt;.mp4</code>（或 mov、mkv、webm）。</p>
+      <div style="overflow-x:auto"><table><tr><th>ID</th><th>要錄什麼</th><th>出現處</th><th>檔案</th></tr>${recRows
+        .map((a) => `<tr><td><code>${esc(a.ID)}</code></td><td>${esc(a["用途（稿中原句）"] || a["名稱"])}</td><td>${esc(a["出現處"])}</td><td>${recFile(a.ID) ? `<span class="ok">已有 ${esc(recFile(a.ID))}</span>` : '<span class="warn">還沒錄</span>'}</td></tr>`)
+        .join("")}</table></div>`
+    : "";
   write(
     "gate1-assets.html",
     page(
       "關卡 1：道具表",
       `<h1>關卡 1：道具表</h1><p class="hint">看四件事：有沒有漏掉你想要有畫面的東西；有沒有列了你不想要的；「外部素材」你能不能提供；「無法具象化」的建議你接不接受。</p>
       <div class="box">共 ${assets.rows.length} 項：${SOURCES.map((s) => `${s} ${bySrc[s]}`).join("，")}</div>
-      ${resultBox(r)}<div class="grid">${cards}</div>`,
+      ${resultBox(r)}${recTable}<h2>代碼繪圖的道具</h2><div class="grid">${cards}</div>`,
     ),
   );
 }
@@ -293,11 +322,16 @@ if (cmd === "gate2") {
   const r = merge(checkAssets(assets), checkBeats(beats, assets));
   const spans = beats.rows.map((b) => ({ id: b.Beat, s: secOf(b["起"]), e: secOf(b["訖"]), kind: b["卡片"] }));
   const total = Math.max(1, ...spans.map((x) => x.e));
-  const hue = (k) => ({ compare: "#ffe14d", chain: "#9fd0ff", branch: "#ffb3d9", tags: "#c9f0c9", bars: "#ffd2a8", stage: "#e0c8ff", icons: "#d8e8a0", picture: "#f0d0d0", meme: "#d0d0f0" })[k] ?? "#eee";
+  const hue = (k) => ({ compare: "#ffe14d", chain: "#9fd0ff", branch: "#ffb3d9", tags: "#c9f0c9", bars: "#ffd2a8", stage: "#e0c8ff", rec: "#cccccc", icons: "#d8e8a0", picture: "#f0d0d0", meme: "#d0d0f0" })[k] ?? "#eee";
   const bar = `<div class="bar">${spans.map((x) => `<div style="flex:${Math.max(0.01, x.e - x.s)};background:${hue(x.kind)};color:#141414" title="Beat ${x.id} ${fmtSec(x.s)}–${fmtSec(x.e)} ${x.kind}">${x.id}</div>`).join("")}</div>`;
   const rows = beats.rows
     .map((b) => `<tr>${BEAT_HEAD.map((h) => `<td>${esc(b[h])}</td>`).join("")}</tr>`)
     .join("");
+  const recBeats = beats.rows.filter((b) => b["卡片"] === "rec");
+  const recSec = recBeats.reduce((t, b) => t + (secOf(b["訖"]) - secOf(b["起"])), 0);
+  const recBox = recBeats.length
+    ? `<div class="box"><b>錄屏段落</b>：${recBeats.length} 段，共 ${recSec.toFixed(1)} 秒（占總長 ${((recSec / total) * 100).toFixed(0)}%）。這些段落在 Remotion 輸出裡是佔位卡，後製時蓋上錄影。節奏條裡灰色的就是。要 DaVinci 的時間軸標記，跑 <code>node tutorial/review.mjs ${ep} markers</code>。</div>`
+    : "";
   const usedProps = [...new Set(beats.rows.flatMap((b) => tokens(b["道具"])))];
   const usedTr = [...new Set(beats.rows.map((b) => dash(b["轉場"])).filter(Boolean))];
   const usedAct = [...new Set(beats.rows.flatMap((b) => [...tokens(b["進場"]), ...tokens(b["強調"]), ...tokens(b["退場"])]))];
@@ -312,7 +346,7 @@ if (cmd === "gate2") {
     page(
       "關卡 2：分鏡表",
       `<h1>關卡 2：分鏡表</h1><p class="hint">看三件事：每一段的卡片類型對不對；畫面比口白早或晚的時機；節奏有沒有哪裡單調。這一關還沒有真正的卡片畫面（要等你點頭、量產之後才有），下面附的是這張表用到的轉場、動作、道具的預覽。</p>
-      ${resultBox(r)}
+      ${resultBox(r)}${recBox}
       <h2>節奏（寬度＝每段長度，顏色＝卡片類型）</h2>${bar}<p class="hint">總長 ${fmtSec(total)}，共 ${beats.rows.length} 段。</p>
       <h2>分鏡表</h2><div style="overflow-x:auto"><table><tr>${BEAT_HEAD.map((h) => `<th>${h}</th>`).join("")}</tr>${rows}</table></div>
       <h2>這張表用到的轉場、動作、道具</h2><div class="grid">${previews}</div>`,
@@ -363,4 +397,58 @@ if (cmd === "gate3") {
       ${resultBox(r)}<div class="grid">${cards}</div>`,
     ),
   );
+}
+
+if (cmd === "markers") {
+  const beats = loadBeats();
+  const assets = loadAssets();
+  const fps = Number(flag("--fps") ?? 30);
+  const startTc = flag("--start-tc") ?? "01:00:00:00";
+  const [sh, sm, ss, sf] = startTc.split(":").map(Number);
+  const base = ((sh * 60 + sm) * 60 + ss) * fps + sf;
+  const tc = (frames) => {
+    const f = frames % fps;
+    const t = Math.floor(frames / fps);
+    const p = (n) => String(n).padStart(2, "0");
+    return `${p(Math.floor(t / 3600))}:${p(Math.floor((t % 3600) / 60))}:${p(t % 60)}:${p(f)}`;
+  };
+  const recs = beats.rows
+    .filter((b) => b["卡片"] === "rec")
+    .map((b) => {
+      const id = tokens(b["道具"])[0];
+      const a = assets.rows.find((x) => x.ID === id);
+      return {
+        beat: b.Beat,
+        id,
+        note: (a?.["用途（稿中原句）"] || a?.["名稱"] || b["畫面描述"] || "").replace(/[|\n]/g, " "),
+        start: Math.round(secOf(b["起"]) * fps),
+        frames: Math.max(1, Math.round((secOf(b["訖"]) - secOf(b["起"])) * fps)),
+        file: recFile(id) ?? "",
+      };
+    });
+  if (!recs.length) {
+    console.log("分鏡表裡沒有卡片是 rec 的段落。");
+    process.exit(0);
+  }
+  // DaVinci Resolve 的時間軸標記 EDL：每個錄屏段落一個標記，名稱是 ID 加說明，長度是該段的格數。
+  let edl = `TITLE: ${ep} 錄屏標記\nFCM: NON-DROP FRAME\n\n`;
+  recs.forEach((r, i) => {
+    const t0 = tc(base + r.start);
+    const t1 = tc(base + r.start + 1);
+    edl += `${String(i + 1).padStart(3, "0")}  001      V     C        ${t0} ${t1} ${t0} ${t1}  \n |C:ResolveColorBlue |M:${r.id} ${r.note} |D:${r.frames}\n\n`;
+  });
+  fs.mkdirSync(path.join(EP, "out"), { recursive: true });
+  const edlFile = path.join(EP, "out", "rec-markers.edl");
+  fs.writeFileSync(edlFile, edl);
+  const csv = [
+    "Beat,ID,起,訖,秒數,要錄什麼,檔案",
+    ...recs.map((r) => {
+      const b = beats.rows.find((x) => x.Beat === r.beat);
+      return [r.beat, r.id, b["起"], b["訖"], (r.frames / fps).toFixed(1), `"${r.note.replace(/"/g, '""')}"`, r.file].join(",");
+    }),
+  ].join("\n");
+  const csvFile = path.join(EP, "out", "rec-list.csv");
+  fs.writeFileSync(csvFile, "\uFEFF" + csv);
+  recs.forEach((r) => console.log(`${r.id}  Beat ${r.beat}  ${tc(base + r.start)}  ${(r.frames / fps).toFixed(1)} 秒  ${r.file || "（還沒錄）"}`));
+  console.log(`\n完成：${path.relative(ROOT, edlFile)}、${path.relative(ROOT, csvFile)}（時間軸起點 ${startTc}，${fps} fps）`);
 }

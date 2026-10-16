@@ -170,7 +170,17 @@ export type StageCard = {
   items: StageItem[];
   stickers?: CardSticker[]; // x、y 是畫面上的像素座標
 };
+// 錄屏佔位卡：這一段的畫面是使用者另外錄的螢幕錄影，後製（DaVinci Resolve 等）時蓋上去。
+// 這裡只出一張標明「此處放錄影」的卡，讓整片的時間軸完整、使用者知道要放哪一支。
+export type RecCard = {
+  kind: "rec";
+  title: string; // 左上角的卡片名
+  id: string; // 道具表裡的錄製項目 ID，例如 rec-04
+  note?: string; // 要錄什麼（取自稿裡的標記說明）
+  timecode?: string; // 這一段在整片的起訖，例如 "00:12.0–00:30.0"，給後製對位用
+};
 export type TutorialCard =
+  | RecCard
   | StageCard
   | CompareCard
   | BranchCard
