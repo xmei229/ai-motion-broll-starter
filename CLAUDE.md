@@ -44,7 +44,7 @@
 ```bash
 npx remotion render src/index.ts Tutorial tutorial/ep01/out/ep01.mp4 --props=tutorial/ep01/props-film.json --public-dir=tutorial/ep01/assets
 ```
-- **幀率**：props 的 `fps`（預設 30）要跟後製軟體的時間軸一致，例如 DaVinci 時間軸是 24 就寫 `"fps": 24`。所有動作都以秒計，換幀率不用改別的。旁白音檔與字幕時間都是秒，不受幀率影響。`markers` 指令預設讀 `props-film.json` 的 `fps`。
+- **幀率**：Remotion 輸出是主材料，預設 30 fps；後製軟體的時間軸與錄屏都遵從它（DaVinci 新建時間軸時設 30 fps）。若有人的時間軸不是 30，才在 props 設 `fps`，例如 `"fps": 24`。所有動作都以秒計，換幀率不用改別的。旁白音檔與字幕時間都是秒，不受幀率影響。`markers` 指令預設讀 `props-film.json` 的 `fps`。
 - 轉場是每段先退場、下一段再進場，不重疊。轉場吃掉的時間，卡片裡的 `at` 要避開。
 - 轉場音效預設不掛。要掛：`node tutorial/download-sfx.mjs ep01`（自己下載，先讀它檔頭的授權說明），再把 props 的 `sfx` 設為 `true`。
 
