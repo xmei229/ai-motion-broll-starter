@@ -4,7 +4,7 @@
 //   node tutorial/review.mjs <epNN> gate1                 關卡 1：道具表審稿頁
 //   node tutorial/review.mjs <epNN> gate2                 關卡 2：分鏡表審稿頁（含自動檢查結果）
 //   node tutorial/review.mjs <epNN> gate3 [--props 檔名]  關卡 3：分鏡圖總表（每段渲一張，排成一頁）
-//   node tutorial/review.mjs <epNN> markers [--fps 30] [--start-tc 01:00:00:00]
+//   node tutorial/review.mjs <epNN> markers [--fps 24] [--start-tc 01:00:00:00]   （fps 預設讀 props-film.json 的 fps，沒有就是 30）
 //                                                         錄屏段落清單：DaVinci Resolve 時間軸標記（EDL）與 CSV
 // 輸入：tutorial/<epNN>/asset-list.md、storyboard.md、props-film.json（關卡 3）
 // 輸出：tutorial/<epNN>/out/review/*.html（資料與圖片都在同一個資料夾，搬走也能開）
@@ -361,7 +361,7 @@ if (cmd === "gate3") {
   const film = JSON.parse(read(pp));
   const beats = fs.existsSync(path.join(EP, "storyboard.md")) ? loadBeats() : { rows: [] };
   const sb = Object.fromEntries(beats.rows.map((b) => [String(Number(b.Beat)), b]));
-  const FPS = 30;
+  const FPS = film.fps ?? 30;
   const OUT_SEC = { dots: 0.26, push: 0.4, blocks: 0.55, doors: 0.45, iris: 0.45, carry: 0.9 };
   fs.mkdirSync(path.join(REVIEW, "stills"), { recursive: true });
   const rel = (p) => path.relative(ROOT, p).replace(/\\/g, "/");
@@ -402,7 +402,11 @@ if (cmd === "gate3") {
 if (cmd === "markers") {
   const beats = loadBeats();
   const assets = loadAssets();
-  const fps = Number(flag("--fps") ?? 30);
+  const filmPath = path.join(EP, flag("--props") ?? "props-film.json");
+  const filmFps = fs.existsSync(filmPath) ? JSON.parse(read(filmPath)).fps : undefined;
+  const fps = Number(flag("--fps") ?? filmFps ?? 30);
+  if (flag("--fps") && filmFps && Number(flag("--fps")) !== filmFps)
+    console.log(`提醒：--fps ${flag("--fps")} 與 ${path.basename(filmPath)} 的 fps ${filmFps} 不同，標記時間會和渲出來的影片對不上`);
   const startTc = flag("--start-tc") ?? "01:00:00:00";
   const [sh, sm, ss, sf] = startTc.split(":").map(Number);
   const base = ((sh * 60 + sm) * 60 + ss) * fps + sf;

@@ -223,6 +223,7 @@ export type TutorialProps = {
   style: StyleId;
   aspect: Aspect;
   durationSec: number; // 整片時給的是下限，實際長度取它與最後一段結束時間的較大者
+  fps?: number; // 幀率，預設 30。要跟後製軟體的時間軸一致（DaVinci 時間軸是 24 就寫 24）
   transitionIn?: TransitionName; // 單卡：開場的進場方式，預設 dots（網點縮開）
   transitionOut?: TransitionName; // 單卡：結尾的退場方式，預設 none（維持原本沒有退場）
   transitionAnchor?: [number, number]; // iris 的圓心、carry 的線頭（出），畫面比例 0 到 1，預設畫面中央

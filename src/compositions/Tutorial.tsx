@@ -22,11 +22,12 @@ export const calculateTutorialMetadata: CalculateMetadataFunction<
   const vertical = props.aspect === "9:16";
   // 整片：長度至少到最後一段結束
   const lastEnd = Math.max(0, ...(props.beats ?? []).map((b) => b.end));
+  const fps = props.fps ?? FPS;
   return {
-    fps: FPS,
+    fps,
     durationInFrames: Math.max(
       1,
-      secToFrame(Math.max(props.durationSec, lastEnd), FPS),
+      secToFrame(Math.max(props.durationSec, lastEnd), fps),
     ),
     width: vertical ? 1080 : 1920,
     height: vertical ? 1920 : 1080,
