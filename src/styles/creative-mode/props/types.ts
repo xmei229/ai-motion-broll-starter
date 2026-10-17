@@ -6,6 +6,7 @@ export type PropDrawProps = {
   sw: number; // 墨線寬，已換算成 viewBox 單位，所有描邊都用它，不要寫死
   fill: string; // 主色，由 tone 決定
   options: Record<string, number>;
+  text?: string; // 需要文字的道具用（PropDef.needsText），由 StageItem.text 給
 };
 
 export type PropDef = {
@@ -13,6 +14,7 @@ export type PropDef = {
   parts: string[]; // 可各自動的零件
   tones: NonNullable<StageItem["tone"]>[]; // 這個道具試過哪些主色
   options: Record<string, string>; // 參數名 → 說明與預設值
+  needsText?: boolean; // true：這個道具要用 StageItem.text
   continuous: string; // 持續動畫的說明；沒有就寫「無」
   draw: React.FC<PropDrawProps>;
 };

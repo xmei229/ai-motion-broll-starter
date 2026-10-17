@@ -48,7 +48,13 @@ npx remotion render src/index.ts Tutorial tutorial/ep01/out/ep01.mp4 --props=tut
 - 轉場是每段先退場、下一段再進場，不重疊。轉場吃掉的時間，卡片裡的 `at` 要避開。
 - 轉場音效預設不掛。要掛：`node tutorial/download-sfx.mjs ep01`（自己下載，先讀它檔頭的授權說明），再把 props 的 `sfx` 設為 `true`。
 
-## 新增動作（轉場、入場、強調、退場）
+## 新增動作或道具
+先分清楚要的是哪一種，再決定去哪找參考：
+- **動作與轉場**（入場、強調、退場、卡與卡之間的轉場，是「怎麼動」）：先查 `references/video-shotcraft/`（唯讀）的鏡頭卡。
+- **道具**（有零件、會自己動的物件，是「動什麼」）：video-shotcraft 沒有現成圖案；小而單一的元素可查 Motion Prompt（見下）。
+- **兩邊都有的小動作**（打字機、數字跳動、依序入場、遮罩升起…）：Motion Prompt 通常更直接，因為它有可跑的程式。
+
+### 參考庫一：video-shotcraft（Apache 2.0）
 動作參考庫在 `references/video-shotcraft/`（唯讀）。要做某個動作前，先到 `shots/<類別>/` 找對應的卡，讀參數表與已知坑。一次只搬一張卡：
 1. 讀卡全文。卡裡「參考實現」指的 `demos/` 檔案不在這個 repo，只有原庫有；沒有它就依卡片的「動效核心」與參數表自己寫。
 2. 改寫進風格資料夾（`src/styles/creative-mode/`），顏色與字體換成該風格的 tokens；不要 import 參考庫裡的任何東西。
@@ -56,6 +62,12 @@ npx remotion render src/index.ts Tutorial tutorial/ep01/out/ep01.mp4 --props=tut
 4. 檔頭註明來源卡名、Apache License 2.0、改了什麼；並把這張卡補進 `NOTICE.md`。
 5. 把這個動作寫進 `MOTION.md` 的表格（名稱用反引號包住），並跑 `node tutorial/_catalog/build-catalog.mjs` 重產目錄。名稱也要加進 `src/lib/types.ts` 的聯集。
 6. 渲染後請使用者看片回驗；卡片的參數只是起點。
+
+### 參考庫二：Motion Prompt（MIT，需連網，選用）
+https://showheyohtaki.github.io/motion-prompt/ ，120 個編號元素（motion、camera、ui、lp、photo 五組），每個是 Canvas 2D 的純函式加規格。它是一個 skill：把它的 `SKILL.md`、`scripts/`、`references/` 放進 `.agents/skills/motion-prompt/`，用 `node <skill>/scripts/motion-prompt.mjs list|search|get|kit|pick` 查，資料每次從網路讀（有 6 小時快取）。
+- **要預期每個元素都得改寫**：它是 Canvas，我們是 SVG；字串多半寫死；有些元素用到畫素運算的共用函式，搬起來很重。目前只試搬過 #006（結果在 `MOTION.md`）。
+- 搬法同上面六步，差別：授權是 MIT，檔頭要保留它那一行署名（`// Motion Prompt #ID · MIT License (c) 2026 Shohei Ohtaki · …`），並在 `NOTICE.md` 補一條；時間數字照它的規格保留；顏色字型換成本風格的 tokens。
+- 搬完不再依賴它：我們的程式與目錄都不需要連到它。
 
 ## 完成前
 - 改動前後都跑 `npm run lint`。

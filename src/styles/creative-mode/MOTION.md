@@ -69,6 +69,11 @@
 |---|---|---|---|---|---|
 | `mic` | 麥克風 | 收音頭、網格、支架弧、立桿、底座、聲波 | 進場 0.25 秒後兩側各三道聲波輪流擴散淡出，每圈 0.67 秒 | 無 | yellow、accent、blue、white |
 | `clock` | 時鐘（鬧鐘造型） | 鐘耳、錶面、刻度、時針、分針、中心點 | 時針與分針依進場後的時間走，角度由同一個分鐘數算出 | `startHour`（10）、`startMinute`（10）、`minutesPerSec`（20，0 停住） | yellow、accent、blue |
+| `typebox` | 輸入框 | 輸入框、文字、游標、送出鈕 | 游標：打字時恆亮，等待時每 0.94 秒閃一次（亮 0.5 秒） | `startSec`（0.3）、`charSec`（0.24）、`send`（1 打完送出並清空；0 停住）；文字用 StageItem 的 `text` | yellow、accent、blue |
+
+**需要文字的道具**（例如 `typebox`）：`stage` 卡的 `items` 多一個 `text` 欄位，沒給就用該道具的預設字。
+
+**搬自 Motion Prompt 的道具**：`typebox` 是 Motion Prompt #006 Typewriter（MIT）的改寫，時間數字照原件規格保留，改成 SVG、文字可由 props 給、顏色字型換成這個風格的 tokens，檔頭保留署名並寫明改了什麼。
 
 `mic`、`clock` 是**測試道具**，用來證明框架可行；正式的道具清單等「道具表」過關卡 1 之後再做。
 

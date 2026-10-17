@@ -59,6 +59,7 @@ const Item: React.FC<{ item: StageItem; now: number }> = ({ item, now }) => {
         sw={sw}
         fill={TONE_FILL[item.tone ?? "yellow"]}
         options={item.options ?? {}}
+        text={item.text}
       />
     </svg>
   );

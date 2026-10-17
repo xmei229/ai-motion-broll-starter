@@ -163,6 +163,7 @@ export type StageItem = {
   exit?: { at: number; action?: ExitAction }; // 預設 popOut
   tone?: "yellow" | "accent" | "blue" | "white" | "warn"; // 道具主色，預設 yellow
   options?: Record<string, number>; // 各道具自己的參數，見該道具檔頭
+  text?: string; // 需要文字的道具（例如輸入框）用；沒給就用該道具的預設字
 };
 export type StageCard = {
   kind: "stage";

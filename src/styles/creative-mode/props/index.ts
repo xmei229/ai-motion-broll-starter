@@ -1,5 +1,6 @@
 import { Clock } from "./Clock";
 import { Mic } from "./Mic";
+import { TypeBox } from "./TypeBox";
 import type { PropDef } from "./types";
 
 // 道具登記處：key 就是道具表（asset-list.md）的 ID，分鏡表靠它引用。
@@ -7,4 +8,5 @@ import type { PropDef } from "./types";
 export const PROPS: Record<string, PropDef> = {
   mic: Mic,
   clock: Clock,
+  typebox: TypeBox,
 };

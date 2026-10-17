@@ -25,3 +25,8 @@
 
 ## references/video-shotcraft/
 這個資料夾是 video-shotcraft 的 157 張鏡頭配方卡與 `aesthetic-rules.md` 的**原樣副本**（Apache License 2.0，授權全文在同一資料夾的 `LICENSE`，來源與 commit 見 `SOURCE.md`）。這些檔案不是本專案作者寫的，也沒有修改；它們只供 agent 讀，不是程式的一部分。
+
+## Motion Prompt
+`src/styles/creative-mode/props/TypeBox.tsx`（道具 `typebox`）改寫自 Motion Prompt #006 Typewriter（MIT License，Copyright (c) 2026 Shohei Ohtaki，https://showheyohtaki.github.io/motion-prompt/#006 ）。授權全文：`licenses/motion-prompt-LICENSE-MIT.txt`。
+- 改動：Canvas 改成 SVG；字串由 props 給；顏色字型換成本專案的 tokens；字寬改查表估計；只跑一遍不循環。時間數字照原件規格保留。檔頭保留署名並寫明改了什麼。
+- 之後從 Motion Prompt 搬用的元素，照同樣做法：保留檔頭署名、在這裡補一條。
