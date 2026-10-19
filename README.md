@@ -4,8 +4,8 @@
 
 ## 開始
 ```bash
-git clone <這個 repo 的網址>
-cd ai-motion-broll-starter
+git clone https://github.com/xmei229/remotion-broll-starter.git
+cd remotion-broll-starter
 npm install
 npm run dev        # 開 Remotion Studio
 ```
