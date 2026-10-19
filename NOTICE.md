@@ -13,6 +13,9 @@
   | `doors` 對開門 | `page-turn-transitions`（對開門那式） | 改成兩扇門蓋上，不是把舊頁裂成兩半；立方體翻轉沒搬 |
   | `iris` 光圈 | `circle-match-iris`（圓心匹配光圈切） | 只取光圈機制，沒有圓對圓的匹配 |
   | `carry` 延伸 | `line-carry-transition`（線條接力轉場） | 改成一條水平線；直角拐彎與圍框沒做；線頭停在畫面 78% 取自原卡 |
+  | `sweep` 前景板 | `transition-hidden-cut`（A 式前景遮擋隱形切） | 運動模糊與殘影沒做，改成平塗板子加前緣色帶；底下內容被帶動 40px 取自原卡 |
+
+  `match`（推近跳接）沒有參考任何一張卡，是本專案自己設計的。`src/lib/motion.ts` 也是自己寫的（三次 Hermite 內插）。
 
 - 改動：程式從零改寫成本專案的 TypeScript 與 tokens，沒有直接複製原檔；各檔檔頭註明參考的卡名與改了什麼。
 - `src/lib/easing.ts` 的緩動表改寫自 video-shotcraft 的 `demos/_fixtures/Motion.tsx`，檔頭有說明。

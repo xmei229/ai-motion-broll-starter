@@ -3,7 +3,10 @@
 //   node tutorial/review.mjs <epNN> check                 只跑自動檢查，有錯誤就以非 0 結束
 //   node tutorial/review.mjs <epNN> gate1                 關卡 1：道具表審稿頁
 //   node tutorial/review.mjs <epNN> gate2                 關卡 2：分鏡表審稿頁（含自動檢查結果）
-//   node tutorial/review.mjs <epNN> gate3 [--props 檔名] [--only 08,14]  關卡 3：分鏡圖總表（每段渲一張，排成一頁；--only 只重渲指定的段）
+//   node tutorial/review.mjs <epNN> gate3 [--props 檔名] [--only 08,14] [--no-clips]
+//                                                         關卡 3：分鏡圖總表（每段渲一張，排成一頁）加轉場片段
+//                                                         （代碼段接代碼段的每個接點，前後各 1.5 秒連續播放）；
+//                                                         --only 只重渲指定的段與它前後的接點，--no-clips 不渲片段
 //   node tutorial/review.mjs <epNN> markers [--fps 24] [--start-tc 01:00:00:00]   （fps 預設讀 props-film.json 的 fps，沒有就是 30）
 //                                                         錄屏段落清單：DaVinci Resolve 時間軸標記（EDL）與 CSV
 // 輸入：tutorial/<epNN>/asset-list.md、storyboard.md、props-film.json（關卡 3）
@@ -156,11 +159,12 @@ const checkBeats = ({ header, rows }, assets) => {
         if (en && dash(p["進場"]) === en && dash(pp["進場"]) === en) r.errors.push(`Beat ${pp.Beat}、${p.Beat}、${b.Beat} 的進場都是 ${en}（連續三個不能相同）`);
       }
     }
+    if (tr === "match") r.infos.push(`${tag} 用 match：推近的中心是 transitionAnchor，下一段落位的中心是 transitionAnchorIn；兩邊擺同一個東西才是「同一個東西換了意思」`);
     if (tr === "carry") r.infos.push(`${tag} 用 carry：下一段進場的線要接在同一個高度，props 裡 transitionAnchor 與 transitionAnchorIn 的 y 要一樣`);
   });
   const count = (n) => rows.filter((b) => dash(b["轉場"]) === n).length;
   if (count("iris") > 1) r.warns.push(`iris 用了 ${count("iris")} 次（建議全片只用一次）`);
-  for (const n of ["blocks", "doors"]) if (count(n) > 3) r.warns.push(`${n} 用了 ${count(n)} 次（建議不超過 3 次）`);
+  for (const n of ["blocks", "doors", "sweep"]) if (count(n) > 3) r.warns.push(`${n} 用了 ${count(n)} 次（建議不超過 3 次）`);
   for (const a of assets.rows) if (!used.has(a.ID)) r.warns.push(`道具表的 ${a.ID} 沒有任何 Beat 用到`);
   if (rows.some((b) => b["備註"].includes("範例"))) r.infos.push("這份分鏡表含「範例」列，還是範本");
   return r;
@@ -181,6 +185,7 @@ const checkFilm = (film, beats, propsFile) => {
     if (b.card.kind !== row["卡片"] && !row["卡片"].startsWith("新增:")) r.errors.push(`${tag} 的卡片是 ${b.card.kind}，分鏡表寫 ${row["卡片"]}`);
     if ((b.transitionOut ?? "none") !== (dash(row["轉場"]) ?? "none")) r.errors.push(`${tag} 的 transitionOut 是 ${b.transitionOut ?? "none"}，分鏡表寫 ${row["轉場"]}`);
     if (b.card.kind === "rec" && !tokens(row["道具"]).includes(b.card.id)) r.errors.push(`${tag} 的 rec 卡 id 是 ${b.card.id}，分鏡表的道具欄是 ${row["道具"]}`);
+    if ((b.holds ?? []).length && !row["備註"].includes("停留")) r.warns.push(`${tag} 在 props 宣告了停留 holds，分鏡表備註沒寫「停留」（使用者在關卡 2 看不到這個決定）`);
     if (b.card.kind === "stage") {
       const want = new Set(tokens(row["道具"]));
       for (const it of b.card.items) if (!want.has(it.prop)) r.errors.push(`${tag} 擺了道具 ${it.prop}，分鏡表的道具欄沒有`);
@@ -260,12 +265,16 @@ const checkRhythm = (film) => {
     const early = ev.filter((t) => t < inSec - 0.05);
     if (early.length) r.warns.push(`${tag} 有 ${early.length} 個東西在進場轉場（${intro}，${inSec} 秒）還沒結束時就出現，會被轉場蓋住`);
     const stops = [inSec, ...ev, Math.max(inSec, dur - outSec)];
+    // 宣告過的停留（holds）是刻意讓觀眾讀的，從空檔裡扣掉
+    const holds = (b.holds ?? []).filter(([a, z]) => z > a);
+    const heldIn = (a, z) => holds.reduce((t, [h0, h1]) => t + Math.max(0, Math.min(z, h1) - Math.max(a, h0)), 0);
+    for (const [h0, h1] of holds) if (h0 < 0 || h1 > dur + 0.05) r.errors.push(`${tag} 的停留 ${h0}–${h1} 秒超出這一段（${dur.toFixed(1)} 秒）`);
     let worst = { gap: 0, from: 0 };
     for (let k = 1; k < stops.length; k++) {
-      const gap = stops[k] - stops[k - 1];
+      const gap = stops[k] - stops[k - 1] - heldIn(stops[k - 1], stops[k]);
       if (gap > worst.gap) worst = { gap, from: stops[k - 1] };
     }
-    if (worst.gap > IDLE_SEC) r.warns.push(`${tag} 從第 ${worst.from.toFixed(1)} 秒起有 ${worst.gap.toFixed(1)} 秒沒有新東西出現，可能會平（超過 ${IDLE_SEC} 秒）`);
+    if (worst.gap > IDLE_SEC) r.warns.push(`${tag} 從第 ${worst.from.toFixed(1)} 秒起有 ${worst.gap.toFixed(1)} 秒沒有新東西出現，可能會平（超過 ${IDLE_SEC} 秒；刻意的停留請寫進 holds）`);
   });
   return r;
 };
@@ -432,20 +441,53 @@ if (cmd === "gate3") {
   const beats = fs.existsSync(path.join(EP, "storyboard.md")) ? loadBeats() : { rows: [] };
   const sb = Object.fromEntries(beats.rows.map((b) => [String(Number(b.Beat)), b]));
   const FPS = film.fps ?? 30;
-  const OUT_SEC = { dots: 0.26, push: 0.4, blocks: 0.55, doors: 0.45, iris: 0.45, carry: 0.9 };
   fs.mkdirSync(path.join(REVIEW, "stills"), { recursive: true });
   const rel = (p) => path.relative(ROOT, p).replace(/\\/g, "/");
+  const only = flag("--only")?.split(",").map((x) => x.trim().padStart(2, "0"));
   const items = film.beats.map((b) => {
     // 停定那一格：退場開始前一點點；沒有退場就取結尾前 0.1 秒
-    const hold = b.end - (OUT_SEC[b.transitionOut] ?? 0) - 0.05;
+    const hold = b.end - (TRANSITION_SEC[b.transitionOut]?.out ?? 0) - 0.05;
     const frame = Math.max(0, Math.round(Math.max(b.start + 0.05, hold) * FPS));
     const png = path.join(REVIEW, "stills", `beat-${b.id}.png`);
-    const only = flag("--only")?.split(",").map((x) => x.trim().padStart(2, "0"));
     if (only && !only.includes(b.id) && fs.existsSync(png)) return { b, row: sb[String(Number(b.id))], file: `stills/beat-${b.id}.png` };
     console.log(`渲染 Beat ${b.id}（第 ${frame} 格）`);
     execSync(`npx remotion still src/index.ts Tutorial "${rel(png)}" --props="${rel(pp)}" --public-dir="${rel(path.join(EP, "assets"))}" --frame=${frame}`, { cwd: ROOT, stdio: "pipe" });
     return { b, row: sb[String(Number(b.id))], file: `stills/beat-${b.id}.png` };
   });
+
+  // 轉場片段：靜止畫面看不出接點順不順，所以每個「代碼段接代碼段」的接點前後各渲 1.5 秒（含旁白）。
+  // 錄屏與段落卡前後的接點後製會蓋掉，不渲。先打包一次，再逐段只渲需要的格數。
+  const CLIP_SEC = 1.5;
+  const placeholder = (b) => b.card.kind === "rec" || b.card.kind === "slot";
+  const joints = film.beats.slice(0, -1).flatMap((a, i) => {
+    const b = film.beats[i + 1];
+    if (placeholder(a) || placeholder(b)) return [];
+    const name = b.transitionIn ?? a.transitionOut ?? "none";
+    const from = Math.round(Math.max(a.start, b.start - CLIP_SEC) * FPS);
+    const to = Math.round(Math.min(b.end, b.start + CLIP_SEC) * FPS) - 1;
+    return [{ a, b, name, from, to, file: `joints/joint-${a.id}-${b.id}.mp4` }];
+  });
+  const clipsOn = !rest.includes("--no-clips");
+  if (clipsOn && joints.length) {
+    fs.mkdirSync(path.join(REVIEW, "joints"), { recursive: true });
+    const todo = joints.filter((j) => !fs.existsSync(path.join(REVIEW, j.file)) || !only || only.includes(j.a.id) || only.includes(j.b.id));
+    if (todo.length) {
+      const bundle = path.join(EP, "out", "bundle");
+      console.log(`打包（${rel(bundle)}）`);
+      execSync(`npx remotion bundle src/index.ts --public-dir="${rel(path.join(EP, "assets"))}" --out-dir="${rel(bundle)}"`, { cwd: ROOT, stdio: "pipe" });
+      for (const j of todo) {
+        console.log(`渲染接點 Beat ${j.a.id} → ${j.b.id}（${j.name}，第 ${j.from}–${j.to} 格）`);
+        execSync(`npx remotion render "${rel(bundle)}" Tutorial "${rel(path.join(REVIEW, j.file))}" --props="${rel(pp)}" --frames=${j.from}-${j.to} --crf=26`, { cwd: ROOT, stdio: "pipe" });
+      }
+    }
+  }
+  const jointCards = clipsOn
+    ? joints
+        .map((j) => `<article><video src="${j.file}" muted loop playsinline controls preload="metadata"></video>
+      <h3>Beat ${esc(j.a.id)} → ${esc(j.b.id)} <span class="tag">${esc(j.name)}</span></h3>
+      <p class="muted">${fmtSec(j.from / FPS)}–${fmtSec((j.to + 1) / FPS)}，接點在 ${fmtSec(j.b.start)}</p></article>`)
+        .join("")
+    : "";
   // 連續三張以上同一種卡片，標出來
   const runs = [];
   for (let i = 0; i < items.length; ) {
@@ -466,8 +508,9 @@ if (cmd === "gate3") {
     "gate3-contact-sheet.html",
     page(
       "關卡 3：分鏡圖總表",
-      `<h1>關卡 3：分鏡圖總表</h1><p class="hint">每段停定的那一格，依序排開。看版面、字級、道具造型，哪裡太擠，哪裡連著好幾張長得一樣。靜止畫面看不出動作和轉場，這兩樣以分鏡表為準。</p>
-      ${resultBox(r)}<div class="grid">${cards}</div>`,
+      `<h1>關卡 3：分鏡圖總表</h1><p class="hint">每段停定的那一格，依序排開。看版面、字級、道具造型，哪裡太擠，哪裡連著好幾張長得一樣。</p>
+      ${resultBox(r)}<h2>每段停定的一格</h2><div class="grid">${cards}</div>
+      ${jointCards ? `<h2>轉場片段（代碼段接代碼段，接點前後各 1.5 秒）</h2><p class="hint">一支一支連續播放，看三件事：接點有沒有跳一下，或停一下才又動；字有沒有比它說明的動作先出來；哪一段開始讓人走神。點開影片右下角可以開聲音，聽字幕和畫面有沒有對上。錄屏與段落卡前後的接點後製會蓋掉，這裡沒有。</p><div class="grid">${jointCards}</div>` : ""}`,
     ),
   );
 }

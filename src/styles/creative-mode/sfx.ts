@@ -10,6 +10,8 @@ export const TRANSITION_SFX: Record<Exclude<TransitionName, "none">, string> = {
   doors: "mech/door-open-futuristic.mp3", // Futuristic door open
   iris: "transition/air-zoom-vacuum.mp3", // Air zoom vacuum
   carry: "text/marker-pen-line.mp3", // Pen marker line：線在畫的聲音
+  sweep: "camera/zoom-swipe-fast.mp3", // Fast swipe zoom：板子掃過
+  match: "camera/ui-zoom-in.mp3", // User interface zoom in：推近
 };
 
 export const SFX_VOLUME = 0.5;

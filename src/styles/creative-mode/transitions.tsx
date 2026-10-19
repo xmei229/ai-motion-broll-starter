@@ -11,10 +11,18 @@
 //            再接進下一張卡的元件；表示「上游帶出下游」的因果。原卡的直角拐彎與圍框沒做，
 //            改成水平的一條線；線頭與接點的高度（anchor 的 y）前後兩張卡要一樣。
 //   dots   ← 半調網點由一點長大蓋滿（原本就在 CardFrame）。
+//   sweep  ← transition-hidden-cut（A 式 invisible-cut 前景遮擋隱形切）：一塊比畫面寬的板子由左往右
+//            掃過，接點那一格正好全蓋，切點藏在板子後面；底下的內容被「風」帶 40px。原卡的運動模糊與
+//            殘影不做（這個風格是平塗硬邊），改成板子前緣一條黃色色帶加墨線。板子的位置用 lib/motion 的
+//            track，跨兩張卡同一條軌道，接點速度不歸零。
+//   match  ← 接續順序的「相似跳接」（shot-transitions 沒有對應的卡，自己設計）：上一張卡朝 anchor
+//            加速推近，下一張卡從 anchorIn 以同樣的推近速度接著推、減速落位。兩張卡在接點各自擺同一個
+//            道具在 anchor 上，就是「同一個東西換了場景」；只有推近、沒有對位，就是一般的推近跳接。
 // 時間全以秒計，格數由幀率換算；卡片參數以 30fps 為準。
 import { createContext, useContext } from "react";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { E, seg } from "../../lib/easing";
+import { track } from "../../lib/motion";
 import type { TransitionName } from "../../lib/types";
 import { COLORS, INK_STROKE, SHADOW } from "./tokens";
 
@@ -46,11 +54,55 @@ export const TRANSITION_SEC: Record<
   doors: { out: 0.45, in: 0.5 },
   iris: { out: 0.45, in: 0.55 },
   carry: { out: 0.9, in: 0.85 },
+  sweep: { out: 0.3, in: 0.4 },
+  match: { out: 0.35, in: 0.35 },
 };
 
 const CARRY_TIP = 0.78; // 線頭停在畫面 78% 處，不出畫（原卡：居中像線在追鏡頭，貼邊會出畫）
 const CARRY_DRAW = 0.4; // 出場前 40% 畫線，後 60% 推內容
 const CARRY_ARRIVE = 0.6; // 進場前 60% 內容落位，後 40% 線縮回
+
+// sweep：板子寬 1.5 個畫面，中心的 x（以畫面寬為 1）。時間 u 以接點為 0，出場是負的、進場是正的。
+// 中間那格不寫速度，讓板子穿過接點繼續走；接點時板子中心在畫面正中，左右各多蓋 0.25 個畫面。
+const SWEEP_W = 1.5;
+const SWEEP_WIND = 40; // 底下內容被帶動的距離（px）
+const sweepTrack = track([
+  { t: -TRANSITION_SEC.sweep.out, v: -SWEEP_W / 2 },
+  { t: 0, v: 0.5 },
+  { t: TRANSITION_SEC.sweep.in, v: 1 + SWEEP_W / 2 },
+]);
+// 接點時間：出場進度 outP（0→1）換成 u ≤ 0，進場進度 inP（0→1）換成 u ≥ 0。
+const sweepU = (phase: "in" | "out", progress: number): number =>
+  phase === "out"
+    ? -TRANSITION_SEC.sweep.out * (1 - progress)
+    : TRANSITION_SEC.sweep.in * progress;
+
+// match：推近量用對數（ln 縮放），出場從 0 推到 +MATCH_ZOOM，進場從 −MATCH_ZOOM 推到 0。
+// 兩邊在接點的推近速度一樣（MATCH_V），所以跳接時「鏡頭還在往前」，不會停一下。
+// 這組速度讓兩段都是等加速／等減速（Hermite 退化成二次曲線），不會倒退。
+const MATCH_ZOOM = Math.log(1.3);
+const MATCH_V = (2 * MATCH_ZOOM) / TRANSITION_SEC.match.out;
+const matchOut = track([
+  { t: -TRANSITION_SEC.match.out, v: 0, d: 0 },
+  { t: 0, v: MATCH_ZOOM, d: MATCH_V },
+]);
+const matchIn = track([
+  { t: 0, v: -MATCH_ZOOM, d: MATCH_V },
+  { t: (2 * MATCH_ZOOM) / MATCH_V, v: 0, d: 0 },
+]);
+// 這一格內容要乘的縮放；圓心由 CardFrame 放在 anchor（出）或 anchorIn（進）。
+export const matchScale = (
+  introName: TransitionName,
+  outroName: TransitionName,
+  inP: number,
+  outP: number,
+): { scale: number; phase: "in" | "out" | null } => {
+  if (outroName === "match" && outP > 0)
+    return { scale: Math.exp(matchOut.at(-TRANSITION_SEC.match.out * (1 - outP))), phase: "out" };
+  if (introName === "match" && inP < 1)
+    return { scale: Math.exp(matchIn.at(TRANSITION_SEC.match.in * inP)), phase: "in" };
+  return { scale: 1, phase: null };
+};
 
 // blocks 的階梯：[進度門檻, 蓋住的比例]。進度越過門檻就硬跳，不插值；間隔刻意不等距。
 export const BLOCK_STEPS: [number, number][] = [
@@ -91,6 +143,7 @@ export const useTransitionPhase = (
 // 內容在這一格要加的水平位移（px）。
 // push：出場加速往左離開（inCubic），進場從右邊減速落位（outQuart）。
 // carry：出場先畫線，再與線同步往左離開（inOutCubic）；進場往左落位（outCubic）。
+// sweep：被板子帶著往右 40px（出），新內容從左 40px 回穩（進）。
 export const contentShift = (
   introName: TransitionName,
   outroName: TransitionName,
@@ -105,6 +158,9 @@ export const contentShift = (
   if (introName === "push") x += width * (1 - E.outQuart(inP));
   if (introName === "carry")
     x += width * (1 - seg(inP, 0, CARRY_ARRIVE, E.outCubic));
+  // sweep：板子掃過時，底下的內容被帶往右；新內容從左邊一點點回穩
+  if (outroName === "sweep") x += SWEEP_WIND * E.inQuad(outP);
+  if (introName === "sweep") x -= SWEEP_WIND * (1 - E.outCubic(inP));
   return x;
 };
 
@@ -184,6 +240,46 @@ const Iris: React.FC<{ c: number; anchor: [number, number] }> = ({ c, anchor }) 
 };
 
 
+// 前景板：主體是粉色平塗，前緣（右邊）一條黃色色帶；兩條邊都有墨線，前緣加硬偏移陰影。
+const Sweep: React.FC<{ phase: "in" | "out"; progress: number }> = ({ phase, progress }) => {
+  const { width } = useVideoConfig();
+  const cx = sweepTrack.at(sweepU(phase, progress)) * width;
+  const w = SWEEP_W * width;
+  const left = Math.round(cx - w / 2);
+  if (left >= width || left + w <= 0) return null;
+  const band = Math.round(width * 0.06);
+  return (
+    <AbsoluteFill>
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left,
+          width: w - band,
+          background: COLORS.accent,
+          borderLeft: `${INK_STROKE}px solid ${COLORS.ink}`,
+          boxSizing: "border-box",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: left + w - band,
+          width: band,
+          background: COLORS.yellow,
+          borderLeft: `${INK_STROKE}px solid ${COLORS.ink}`,
+          borderRight: `${INK_STROKE}px solid ${COLORS.ink}`,
+          boxShadow: `${SHADOW}px 0 0 ${COLORS.ink}`,
+          boxSizing: "border-box",
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
+
 // 延伸線：一條墨線加箭頭。出場時由 anchor 往右畫到線頭，再與內容一起往左；
 // 進場時線從畫面左緣拉到新內容的接點，內容落位後線從左端縮回接點、消失。
 const Carry: React.FC<{
@@ -236,7 +332,8 @@ const Carry: React.FC<{
   );
 };
 
-// 蓋在卡片上面的那一層。cover 型的轉場與 carry 的線都在這裡畫；push 不蓋東西，由 CardFrame 移動內容。
+// 蓋在卡片上面的那一層。cover 型的轉場、carry 的線、sweep 的板子都在這裡畫；
+// push 與 match 不蓋東西，由 CardFrame 移動或縮放內容。
 // progress：進場傳 inP，出場傳 outP。
 export const CoverLayer: React.FC<{
   name: TransitionName;
@@ -244,7 +341,11 @@ export const CoverLayer: React.FC<{
   progress: number;
   anchor: [number, number];
 }> = ({ name, phase, progress, anchor }) => {
-  if (name === "none" || name === "push") return null;
+  if (name === "none" || name === "push" || name === "match") return null;
+  if (name === "sweep") {
+    if (phase === "out" ? progress <= 0 : progress >= 1) return null;
+    return <Sweep phase={phase} progress={progress} />;
+  }
   if (name === "carry") {
     if (phase === "out" ? progress <= 0 : progress >= 1) return null;
     return <Carry phase={phase} progress={progress} anchor={anchor} />;

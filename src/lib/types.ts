@@ -210,6 +210,8 @@ export type TransitionName =
   | "doors"
   | "iris"
   | "carry"
+  | "sweep"
+  | "match"
   | "none";
 // 影片版（Film）裡的一段：start、end 是整支旁白上的秒數（取自人工校過的字幕）。
 // 轉場：transitionOut 是這一段接下一段的方式；下一段沒寫 transitionIn 就沿用它，所以兩邊不會對不上。
@@ -220,8 +222,9 @@ export type FilmBeat = {
   card: TutorialCard;
   transitionIn?: TransitionName;
   transitionOut?: TransitionName;
-  transitionAnchor?: [number, number]; // 出場用（iris 圓心、carry 線頭）
-  transitionAnchorIn?: [number, number]; // 進場用（carry 接點）；沒寫就用 transitionAnchor
+  transitionAnchor?: [number, number]; // 出場用（iris 圓心、carry 線頭、match 推近的中心）
+  transitionAnchorIn?: [number, number]; // 進場用（carry 接點、match 落位的中心）；沒寫就用 transitionAnchor
+  holds?: [number, number][]; // 刻意的閱讀停留（這一段內的秒數），節奏檢查不把它算成「平」；分鏡表備註寫「停留 起–訖：原因」
 };
 // 兩種用法擇一：
 //   單卡：給 card，渲成一支短片（一張卡一支）；

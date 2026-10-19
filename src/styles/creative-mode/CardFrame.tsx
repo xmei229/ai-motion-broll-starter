@@ -4,6 +4,7 @@ import { COLORS, FONT_CJK, INK_STROKE, SHADOW, SIZE } from "./tokens";
 import {
   CoverLayer,
   contentShift,
+  matchScale,
   useCardSec,
   useTransition,
   useTransitionPhase,
@@ -19,7 +20,7 @@ export const CardFrame: React.FC<{
   children: React.ReactNode;
 }> = ({ title, margin, intro = true, children }) => {
   const frame = useCurrentFrame();
-  const { width, fps } = useVideoConfig();
+  const { width, height, fps } = useVideoConfig();
   const cardSec = useCardSec();
   const setting = useTransition();
   const introName = intro ? setting.intro : "none";
@@ -29,6 +30,10 @@ export const CardFrame: React.FC<{
     setting.totalSec,
   );
   const shift = contentShift(introName, setting.outro, inP, outP, width);
+  // match：整張卡朝 anchor 推近（出）或從 anchorIn 推近落位（進）。包在外層，圓心不影響慢速推近。
+  const zoom = matchScale(introName, setting.outro, inP, outP);
+  const zoomAt =
+    zoom.phase === "in" ? (setting.anchorIn ?? setting.anchor) : setting.anchor;
   const push =
     1 +
     PUSH *
@@ -42,6 +47,12 @@ export const CardFrame: React.FC<{
   return (
     <AbsoluteFill>
       <Backdrop dot={COLORS.accent2} />
+      <AbsoluteFill
+        style={{
+          transform: zoom.phase ? `scale(${zoom.scale})` : undefined,
+          transformOrigin: `${zoomAt[0] * width}px ${zoomAt[1] * height}px`,
+        }}
+      >
       <AbsoluteFill
         style={{
           transform: `translateX(${shift}px) scale(${push})`,
@@ -66,6 +77,7 @@ export const CardFrame: React.FC<{
           {title}
         </div>
         {children}
+      </AbsoluteFill>
       </AbsoluteFill>
 
       <CoverLayer

@@ -13,6 +13,8 @@ const URLS = {
   "mech/door-open-futuristic.mp3": "https://assets.mixkit.co/active_storage/sfx/183/183-preview.mp3",
   "transition/air-zoom-vacuum.mp3": "https://assets.mixkit.co/active_storage/sfx/2608/2608-preview.mp3",
   "text/marker-pen-line.mp3": "https://assets.mixkit.co/active_storage/sfx/2998/2998-preview.mp3",
+  "camera/zoom-swipe-fast.mp3": "https://assets.mixkit.co/active_storage/sfx/2627/2627-preview.mp3",
+  "camera/ui-zoom-in.mp3": "https://assets.mixkit.co/active_storage/sfx/2618/2618-preview.mp3",
 };
 
 const ep = process.argv[2];
