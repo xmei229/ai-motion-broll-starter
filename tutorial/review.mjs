@@ -3,7 +3,7 @@
 //   node tutorial/review.mjs <epNN> check                 只跑自動檢查，有錯誤就以非 0 結束
 //   node tutorial/review.mjs <epNN> gate1                 關卡 1：道具表審稿頁
 //   node tutorial/review.mjs <epNN> gate2                 關卡 2：分鏡表審稿頁（含自動檢查結果）
-//   node tutorial/review.mjs <epNN> gate3 [--props 檔名]  關卡 3：分鏡圖總表（每段渲一張，排成一頁）
+//   node tutorial/review.mjs <epNN> gate3 [--props 檔名] [--only 08,14]  關卡 3：分鏡圖總表（每段渲一張，排成一頁；--only 只重渲指定的段）
 //   node tutorial/review.mjs <epNN> markers [--fps 24] [--start-tc 01:00:00:00]   （fps 預設讀 props-film.json 的 fps，沒有就是 30）
 //                                                         錄屏段落清單：DaVinci Resolve 時間軸標記（EDL）與 CSV
 // 輸入：tutorial/<epNN>/asset-list.md、storyboard.md、props-film.json（關卡 3）
@@ -129,7 +129,9 @@ const checkBeats = ({ header, rows }, assets) => {
       prevEnd = e;
     }
     if (Number(b.Beat) !== i + 1) r.warns.push(`Beat 編號不連號：第 ${i + 1} 列寫 ${b.Beat}`);
-    if (!MEANINGS.includes(b["意思類型"])) r.errors.push(`${tag} 的意思類型「${b["意思類型"]}」不在 ${MEANINGS.join("、")} 裡`);
+    const placeholder = b["卡片"] === "rec" || b["卡片"] === "slot";
+    if (b["卡片"] === "slot" && tokens(b["道具"]).length) r.errors.push(`${tag} 是段落卡佔位（slot），道具欄要寫 —`);
+    if (!(placeholder && !dash(b["意思類型"])) && !MEANINGS.includes(b["意思類型"])) r.errors.push(`${tag} 的意思類型「${b["意思類型"]}」不在 ${MEANINGS.join("、")} 裡`);
     if (!CARD_KINDS.includes(b["卡片"]) && !b["卡片"].startsWith("新增:")) r.errors.push(`${tag} 的卡片「${b["卡片"]}」不在 ${CARD_KINDS.join("、")} 裡`);
     if (b["卡片"].startsWith("新增:")) r.warns.push(`${tag} 需要還沒有的版型：${b["卡片"]}`);
     for (const id of tokens(b["道具"])) {
@@ -144,7 +146,7 @@ const checkBeats = ({ header, rows }, assets) => {
     const tr = dash(b["轉場"]);
     if (tr && !VOCAB.transition.includes(tr)) r.errors.push(`${tag} 的轉場「${tr}」不在 ${VOCAB.transition.join("、")} 裡`);
     if (i === rows.length - 1 && tr) r.errors.push(`最後一個 Beat 的轉場要寫 —`);
-    if (i < rows.length - 1 && !tr) r.warns.push(`${tag} 沒有轉場（會裸切）`);
+    if (i < rows.length - 1 && !tr && !placeholder && !(rows[i + 1] && ["rec", "slot"].includes(rows[i + 1]["卡片"]))) r.warns.push(`${tag} 沒有轉場（會裸切）`);
     if (i > 0) {
       const p = rows[i - 1];
       if (tr && dash(p["轉場"]) === tr) r.errors.push(`Beat ${p.Beat} 與 ${b.Beat} 的轉場都是 ${tr}（連續兩個不能相同）`);
@@ -200,6 +202,71 @@ const checkFilm = (film, beats, propsFile) => {
     for (const m of sfxTable.matchAll(/"([a-z]+\/[\w-]+\.mp3)"/g))
       if (!fs.existsSync(path.join(assetsDir, "sfx", m[1]))) r.errors.push(`音效 ${m[1]} 不在 assets/sfx/（先跑 node tutorial/download-sfx.mjs ${ep}）`);
   }
+  return r;
+};
+
+// ---------- 節奏檢查（整片 props）----------
+// 轉場秒數讀自風格的 transitions.tsx，與畫面用同一份數字。
+const TRANSITION_SEC = (() => {
+  const src = read(path.join(ROOT, "src/styles/creative-mode/transitions.tsx"));
+  const out = {};
+  for (const m of src.matchAll(/(\w+): \{ out: ([\d.]+), in: ([\d.]+) \}/g)) out[m[1]] = { out: Number(m[2]), in: Number(m[3]) };
+  return out;
+})();
+const IDLE_SEC = 8; // 一段裡超過這麼久沒有新東西出現，就提醒
+const SHORT_SEC = 3; // 短於這個的段，連續出現就提醒
+
+// 卡片裡所有「某個東西在第幾秒出現或改變」的時間
+const cardEvents = (card) => {
+  const ev = [];
+  const walk = (o) => {
+    if (Array.isArray(o)) return o.forEach(walk);
+    if (!o || typeof o !== "object") return;
+    for (const [k, v] of Object.entries(o)) {
+      if (typeof v === "number" && ["at", "subAt", "rightAt", "noteAt", "markAt", "until"].includes(k)) ev.push(v);
+      else if (typeof v === "object") walk(v);
+    }
+  };
+  walk(card);
+  return ev.sort((a, b) => a - b);
+};
+
+const checkRhythm = (film) => {
+  const r = { errors: [], warns: [], infos: [] };
+  const fb = film.beats ?? [];
+  let shortRun = [];
+  fb.forEach((b, i) => {
+    const kind = b.card.kind;
+    if (kind === "rec" || kind === "slot") {
+      shortRun = [];
+      return;
+    }
+    const tag = `Beat ${b.id}`;
+    const dur = b.end - b.start;
+    const intro = b.transitionIn ?? fb[i - 1]?.transitionOut ?? "none";
+    const outro = b.transitionOut ?? "none";
+    const inSec = intro === "none" ? 0 : TRANSITION_SEC[intro]?.in ?? 0;
+    const outSec = outro === "none" ? 0 : TRANSITION_SEC[outro]?.out ?? 0;
+    const ev = cardEvents(b.card);
+    if (dur < SHORT_SEC) shortRun.push(b.id);
+    else shortRun = [];
+    if (shortRun.length >= 2) r.warns.push(`Beat ${shortRun.join("、")} 連續都短於 ${SHORT_SEC} 秒，畫面會一閃一閃`);
+    if (!ev.length) {
+      r.infos.push(`${tag}（${kind}）沒有寫出現時間，卡片自己平均排，略過節奏檢查`);
+      return;
+    }
+    const late = ev.filter((t) => t > dur - outSec);
+    if (late.length) r.errors.push(`${tag} 有 ${late.length} 個東西在第 ${late.map((t) => t.toFixed(1)).join("、")} 秒才出現，但這一段 ${dur.toFixed(1)} 秒、最後 ${outSec} 秒在退場，看不到`);
+    const early = ev.filter((t) => t < inSec - 0.05);
+    if (early.length) r.warns.push(`${tag} 有 ${early.length} 個東西在進場轉場（${intro}，${inSec} 秒）還沒結束時就出現，會被轉場蓋住`);
+    const stops = [inSec, ...ev, Math.max(inSec, dur - outSec)];
+    let worst = { gap: 0, from: 0 };
+    for (let k = 1; k < stops.length; k++) {
+      const gap = stops[k] - stops[k - 1];
+      if (gap > worst.gap) worst = { gap, from: stops[k - 1] };
+    }
+    if (worst.gap > IDLE_SEC) r.warns.push(`${tag} 從第 ${worst.from.toFixed(1)} 秒起有 ${worst.gap.toFixed(1)} 秒沒有新東西出現，可能會平（超過 ${IDLE_SEC} 秒）`);
+  });
   return r;
 };
 
@@ -274,7 +341,10 @@ if (cmd === "check") {
   const parts = [checkAssets(assets), checkBeats(beats, assets)];
   const pf = flag("--props") ?? "props-film.json";
   const pp = path.join(EP, pf);
-  if (fs.existsSync(pp)) parts.push(checkFilm(JSON.parse(read(pp)), beats, pf));
+  if (fs.existsSync(pp)) {
+    const film = JSON.parse(read(pp));
+    parts.push(checkFilm(film, beats, pf), checkRhythm(film));
+  }
   const r = merge(...parts);
   printResult(r);
   process.exit(r.errors.length ? 1 : 0);
@@ -322,7 +392,7 @@ if (cmd === "gate2") {
   const r = merge(checkAssets(assets), checkBeats(beats, assets));
   const spans = beats.rows.map((b) => ({ id: b.Beat, s: secOf(b["起"]), e: secOf(b["訖"]), kind: b["卡片"] }));
   const total = Math.max(1, ...spans.map((x) => x.e));
-  const hue = (k) => ({ compare: "#ffe14d", chain: "#9fd0ff", branch: "#ffb3d9", tags: "#c9f0c9", bars: "#ffd2a8", stage: "#e0c8ff", rec: "#cccccc", icons: "#d8e8a0", picture: "#f0d0d0", meme: "#d0d0f0" })[k] ?? "#eee";
+  const hue = (k) => ({ compare: "#ffe14d", chain: "#9fd0ff", branch: "#ffb3d9", tags: "#c9f0c9", bars: "#ffd2a8", stage: "#e0c8ff", rec: "#cccccc", slot: "#888888", icons: "#d8e8a0", picture: "#f0d0d0", meme: "#d0d0f0" })[k] ?? "#eee";
   const bar = `<div class="bar">${spans.map((x) => `<div style="flex:${Math.max(0.01, x.e - x.s)};background:${hue(x.kind)};color:#141414" title="Beat ${x.id} ${fmtSec(x.s)}–${fmtSec(x.e)} ${x.kind}">${x.id}</div>`).join("")}</div>`;
   const rows = beats.rows
     .map((b) => `<tr>${BEAT_HEAD.map((h) => `<td>${esc(b[h])}</td>`).join("")}</tr>`)
@@ -370,6 +440,8 @@ if (cmd === "gate3") {
     const hold = b.end - (OUT_SEC[b.transitionOut] ?? 0) - 0.05;
     const frame = Math.max(0, Math.round(Math.max(b.start + 0.05, hold) * FPS));
     const png = path.join(REVIEW, "stills", `beat-${b.id}.png`);
+    const only = flag("--only")?.split(",").map((x) => x.trim().padStart(2, "0"));
+    if (only && !only.includes(b.id) && fs.existsSync(png)) return { b, row: sb[String(Number(b.id))], file: `stills/beat-${b.id}.png` };
     console.log(`渲染 Beat ${b.id}（第 ${frame} 格）`);
     execSync(`npx remotion still src/index.ts Tutorial "${rel(png)}" --props="${rel(pp)}" --public-dir="${rel(path.join(EP, "assets"))}" --frame=${frame}`, { cwd: ROOT, stdio: "pipe" });
     return { b, row: sb[String(Number(b.id))], file: `stills/beat-${b.id}.png` };
@@ -382,7 +454,8 @@ if (cmd === "gate3") {
     if (j - i >= 2) runs.push(`Beat ${items[i].b.id} 到 ${items[j].b.id} 連續 ${j - i + 1} 張都是 ${items[i].b.card.kind}`);
     i = j + 1;
   }
-  const r = { errors: [], warns: runs, infos: [] };
+  const rh = checkRhythm(film);
+  const r = { errors: rh.errors, warns: [...runs, ...rh.warns], infos: [] };
   const cards = items
     .map(({ b, row, file }) => `<article><img src="${file}" alt="Beat ${b.id}">
       <h3>Beat ${esc(b.id)} <small class="muted">${fmtSec(b.start)}–${fmtSec(b.end)}</small></h3>
@@ -417,9 +490,10 @@ if (cmd === "markers") {
     return `${p(Math.floor(t / 3600))}:${p(Math.floor((t % 3600) / 60))}:${p(t % 60)}:${p(f)}`;
   };
   const recs = beats.rows
-    .filter((b) => b["卡片"] === "rec")
+    .filter((b) => b["卡片"] === "rec" || b["卡片"] === "slot")
     .map((b) => {
-      const id = tokens(b["道具"])[0];
+      const slot = b["卡片"] === "slot";
+      const id = slot ? "段落卡" : tokens(b["道具"])[0];
       const a = assets.rows.find((x) => x.ID === id);
       return {
         beat: b.Beat,
@@ -427,11 +501,11 @@ if (cmd === "markers") {
         note: (a?.["用途（稿中原句）"] || a?.["名稱"] || b["畫面描述"] || "").replace(/[|\n]/g, " "),
         start: Math.round(secOf(b["起"]) * fps),
         frames: Math.max(1, Math.round((secOf(b["訖"]) - secOf(b["起"])) * fps)),
-        file: recFile(id) ?? "",
+        file: slot ? "" : recFile(id) ?? "",
       };
     });
   if (!recs.length) {
-    console.log("分鏡表裡沒有卡片是 rec 的段落。");
+    console.log("分鏡表裡沒有卡片是 rec 或 slot 的段落。");
     process.exit(0);
   }
   // DaVinci Resolve 的時間軸標記 EDL：每個錄屏段落一個標記，名稱是 ID 加說明，長度是該段的格數。
@@ -439,7 +513,7 @@ if (cmd === "markers") {
   recs.forEach((r, i) => {
     const t0 = tc(base + r.start);
     const t1 = tc(base + r.start + 1);
-    edl += `${String(i + 1).padStart(3, "0")}  001      V     C        ${t0} ${t1} ${t0} ${t1}  \n |C:ResolveColorBlue |M:${r.id} ${r.note} |D:${r.frames}\n\n`;
+    edl += `${String(i + 1).padStart(3, "0")}  001      V     C        ${t0} ${t1} ${t0} ${t1}  \n |C:${r.slot ? "ResolveColorGreen" : "ResolveColorBlue"} |M:${r.id} ${r.note} |D:${r.frames}\n\n`;
   });
   fs.mkdirSync(path.join(EP, "out"), { recursive: true });
   const edlFile = path.join(EP, "out", "rec-markers.edl");
@@ -453,6 +527,6 @@ if (cmd === "markers") {
   ].join("\n");
   const csvFile = path.join(EP, "out", "rec-list.csv");
   fs.writeFileSync(csvFile, "\uFEFF" + csv);
-  recs.forEach((r) => console.log(`${r.id}  Beat ${r.beat}  ${tc(base + r.start)}  ${(r.frames / fps).toFixed(1)} 秒  ${r.file || "（還沒錄）"}`));
+  recs.forEach((r) => console.log(`${r.id}  Beat ${r.beat}  ${tc(base + r.start)}  ${(r.frames / fps).toFixed(1)} 秒  ${r.slot ? "（後製放段落卡）" : r.file || "（還沒錄）"}`));
   console.log(`\n完成：${path.relative(ROOT, edlFile)}、${path.relative(ROOT, csvFile)}（時間軸起點 ${startTc}，${fps} fps）`);
 }
