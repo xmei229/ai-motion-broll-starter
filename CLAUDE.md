@@ -39,6 +39,9 @@
 - `node tutorial/review.mjs <epNN> markers` 產生 DaVinci Resolve 的時間軸標記（EDL）與清單（CSV）。
 - 錄影檔放 `tutorial/<epNN>/assets/rec/<ID>.mp4`，給後製用，Remotion 不讀它。
 
+## 段落卡片（後製放入）
+使用者若在旁白裡為「##」「###」段落卡片留了停頓（字幕之間約 3 秒的空檔），分鏡表那一段卡片寫 `slot`，Remotion 出一張標明段落名稱的佔位，後製再蓋上段落卡片。`markers` 指令會把它們列成綠色標記。
+
 ## 整片
 `Tutorial` 的 props 給 `beats`，就把每一段依旁白時間接成一支，含轉場與旁白。格式見 `tutorial/ep00/props-film-sample.json`：
 ```bash

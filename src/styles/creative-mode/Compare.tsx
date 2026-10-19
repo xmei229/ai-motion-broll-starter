@@ -3,6 +3,7 @@ import { seeded } from "../../lib/random";
 import { secToFrame } from "../../lib/time";
 import type { Aspect, CompareCard, CompareSide } from "../../lib/types";
 import { CardFrame } from "./CardFrame";
+import { Label } from "./Label";
 import { useCardSec } from "./transitions";
 import { Lead } from "./Lead";
 import { clamp, pop, slam } from "./motion";
@@ -265,6 +266,20 @@ export const Compare: React.FC<{ card: CompareCard; aspect: Aspect }> = ({
             </div>
           );
         })}
+      {(card.stickers ?? []).map((s, i) => {
+        const k = slam(t - s.at);
+        if (k.x === 0) return null;
+        return (
+          <Label
+            key={`${s.text}-${i}`}
+            sticker={s}
+            left={s.x}
+            top={s.y}
+            rot={(seeded(`compare-label-${i}`)() - 0.5) * 8}
+            scale={k}
+          />
+        );
+      })}
     </CardFrame>
   );
 };

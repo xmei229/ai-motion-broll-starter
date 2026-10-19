@@ -9,6 +9,7 @@ import { Icons } from "./Icons";
 import { Meme } from "./Meme";
 import { Picture } from "./Picture";
 import { Rec } from "./Rec";
+import { Slot } from "./Slot";
 import { Stage } from "./Stage";
 import { Tags } from "./Tags";
 
@@ -48,5 +49,7 @@ const Kind: React.FC<{ card: TutorialCard; aspect: Aspect }> = ({
       return <Stage card={card} aspect={aspect} />;
     case "rec":
       return <Rec card={card} aspect={aspect} />;
+    case "slot":
+      return <Slot card={card} aspect={aspect} />;
   }
 };

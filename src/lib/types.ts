@@ -32,6 +32,7 @@ export type CompareCard = {
   left: CompareSide;
   right: CompareSide;
   rows: CompareRow[];
+  stickers?: CardSticker[]; // 疊在對照卡上的貼紙；x、y 是畫面上的像素座標
 };
 // 分支卡與標籤卡左邊的根。subAt 是副標出現的秒數，省略時跟著標題一起出現。
 export type RootSide = { title: string; sub?: string; at?: number; subAt?: number };
@@ -180,7 +181,16 @@ export type RecCard = {
   note?: string; // 要錄什麼（取自稿裡的標記說明）
   timecode?: string; // 這一段在整片的起訖，例如 "00:12.0–00:30.0"，給後製對位用
 };
+// 段落卡佔位：稿裡「##」「###」的段落卡片，使用者在後製（DaVinci Resolve）放入。
+// 旁白在這裡有約 3 秒的停頓，Remotion 只出一張標明段落名稱的佔位，讓時間軸完整。
+export type SlotCard = {
+  kind: "slot";
+  title: string; // 左上角的卡片名
+  label: string; // 段落名稱，例如「2-2 Remotion」
+  timecode?: string; // 這一段在整片的起訖，給後製對位用
+};
 export type TutorialCard =
+  | SlotCard
   | RecCard
   | StageCard
   | CompareCard
